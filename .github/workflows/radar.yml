@@ -2,8 +2,7 @@ name: Community Growth Radar
 
 on:
   schedule:
-    - cron: '0 7 * * 1'   # Every Monday 7am UTC
-    - cron: '0 7 * * 4'   # Every Thursday 7am UTC
+    - cron: '0 10 * * 1'  # Every Monday 6am EST (10am UTC)
   workflow_dispatch:       # Allow manual trigger
 
 jobs:
