@@ -32,7 +32,7 @@ st.markdown(
       </p>
       <p style="color:#a8d5b5;margin:0;font-size:14px;">
         Finds events where you can sponsor, partner, attend, and grow —
-        download your report as a PDF.
+        download your report as a CSV.
       </p>
     </div>
     """,
