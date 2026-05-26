@@ -184,11 +184,14 @@ def send_batch_email(
     resend_key: str = None,
     alert_email: str = None,
 ):
-    api_key = resend_key or os.getenv("RESEND_API_KEY")
-    to_email = alert_email or os.getenv("ALERT_EMAIL")
+    api_key = (resend_key or "").strip() or os.getenv("RESEND_API_KEY")
+    to_email = (alert_email or "").strip() or os.getenv("ALERT_EMAIL")
 
-    if not api_key or not to_email:
-        print("[ERROR] RESEND_API_KEY or ALERT_EMAIL not set")
+    if not api_key:
+        print("[ERROR] No Resend API key provided or found in env")
+        return
+    if not to_email:
+        print("[ERROR] No alert email provided or found in env")
         return
 
     html = build_html(events, city_scores, total_scanned)
