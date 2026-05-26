@@ -205,24 +205,34 @@ if run_button:
 
     os.environ["ANTHROPIC_API_KEY"] = anthropic_key
 
-    config.CITIES = selected_cities
-    config.CITIES_PER_RUN = len(selected_cities)
-
     with st.status("Running the Radar...", expanded=True) as status:
         st.write("Scraping events across your selected cities...")
-        events = scrape_events()
+        events = scrape_events(cities=selected_cities)
         st.write(f"Found {len(events)} events. Filtering past events...")
 
+        if not events:
+            st.error("No events found for these cities. Try selecting different cities.")
+            st.stop()
+
         st.write("Scoring events with Claude AI. This takes a few minutes...")
-        scored = []
+        all_scored = []
         total_to_score = min(len(events), 200)
         progress = st.progress(0)
         for i, event in enumerate(events[:200]):
             score_data = score_event(event)
-            if score_data.get("opportunity_score", 0) > MIN_SCORE_THRESHOLD:
-                scored.append({**event, **score_data})
+            all_scored.append({**event, **score_data})
             if total_to_score > 0:
                 progress.progress((i + 1) / total_to_score)
+
+        scored = [e for e in all_scored if e.get("opportunity_score", 0) > 3]
+
+        if not scored:
+            st.warning(
+                f"Found {len(events)} events but none scored above 3. "
+                "This may indicate an API key issue. "
+                "Please verify your Anthropic key has credits at console.anthropic.com"
+            )
+            st.stop()
 
         st.write(f"Scored {len(scored)} relevant events. Ranking top opportunities...")
         scored.sort(key=lambda x: x.get("start_date") or "9999")

@@ -155,12 +155,15 @@ def _scrape_luma(city: str, keyword: str) -> list[dict]:
     return events
 
 
-def scrape_events() -> list[dict]:
-    cities = _get_cities_for_run()
-    print(f"[INFO] Scraping cities this run: {', '.join(cities)}")
+def scrape_events(cities: list[str] = None) -> list[dict]:
+    if cities:
+        run_cities = cities
+    else:
+        run_cities = _get_cities_for_run()
+    print(f"[INFO] Scraping cities this run: {', '.join(run_cities)}")
 
     all_events = []
-    for city in cities:
+    for city in run_cities:
         for keyword in config.KEYWORDS:
             all_events.extend(_scrape_allevents(city, keyword))
             time.sleep(1)
