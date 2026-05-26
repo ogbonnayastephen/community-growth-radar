@@ -170,7 +170,13 @@ if run_button:
             city_scores.append(cs)
 
         st.write("Sending your report via email...")
-        send_batch_email(top_events, city_scores, len(events))
+        send_batch_email(
+            top_events,
+            city_scores,
+            len(events),
+            resend_key=resend_key,
+            alert_email=alert_email,
+        )
 
         status.update(label="Done!", state="complete")
 

@@ -177,9 +177,15 @@ def build_html(events: list[dict], city_scores: list[dict], total_scanned: int) 
     return html
 
 
-def send_batch_email(events: list[dict], city_scores: list[dict], total_scanned: int):
-    api_key = os.getenv("RESEND_API_KEY")
-    to_email = os.getenv("ALERT_EMAIL")
+def send_batch_email(
+    events: list[dict],
+    city_scores: list[dict],
+    total_scanned: int,
+    resend_key: str = None,
+    alert_email: str = None,
+):
+    api_key = resend_key or os.getenv("RESEND_API_KEY")
+    to_email = alert_email or os.getenv("ALERT_EMAIL")
 
     if not api_key or not to_email:
         print("[ERROR] RESEND_API_KEY or ALERT_EMAIL not set")
