@@ -180,26 +180,48 @@ if run_button:
 
         status.update(label="Done!", state="complete")
 
+    # ── Full results table ────────────────────────────────────────────────────
+    if top_events:
+        st.markdown("### Your Top Events — Plan Ahead")
+
+        header_cols = st.columns([3, 1.5, 1.2, 0.8, 1.8, 3])
+        for col, label in zip(
+            header_cols,
+            ["Event", "City", "Date", "Score", "Action", "Why"],
+        ):
+            col.markdown(f"**{label}**")
+
+        st.divider()
+
+        for e in top_events:
+            name = e.get("name", "Untitled")
+            url = e.get("url", "")
+            city = e.get("city", "")
+            start_date = e.get("start_date") or "TBD"
+            score = e.get("opportunity_score", 0)
+            action = (e.get("recommended_action") or "").replace("_", " ").title()
+            why = e.get("action_reason", "")
+
+            if score >= 9:
+                score_md = f"**:red[{score}/10]**"
+            elif score >= 7:
+                score_md = f"**:orange[{score}/10]**"
+            else:
+                score_md = f"{score}/10"
+
+            row = st.columns([3, 1.5, 1.2, 0.8, 1.8, 3])
+            row[0].markdown(f"[{name}]({url})" if url else name)
+            row[1].write(city)
+            row[2].write(start_date)
+            row[3].markdown(score_md)
+            row[4].write(action)
+            row[5].write(why)
+
     st.success(
         f"Your report is on its way to **{alert_email}**. "
         "Check your inbox in the next few minutes. "
         "Check spam if it doesn't arrive."
     )
-
-    # Preview top 5
-    if top_events:
-        st.subheader("Preview: Top 5 Events")
-        preview = [
-            {
-                "Event Name": e.get("name", ""),
-                "City": e.get("city", ""),
-                "Score": e.get("opportunity_score", 0),
-                "Action": (e.get("recommended_action") or "").replace("_", " ").title(),
-                "Why": e.get("action_reason", ""),
-            }
-            for e in top_events[:5]
-        ]
-        st.dataframe(preview, use_container_width=True)
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.divider()
