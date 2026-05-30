@@ -1,75 +1,93 @@
 import json
+import os
+import re
+import sys
 
 import anthropic
 
-CLIENT = anthropic.Anthropic()
-MODEL = "claude-sonnet-4-20250514"
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import config
 
-SYSTEM_PROMPT = """You are a market entry analyst for The Community Growth Radar. \
-Given data about events found in a city, score the city for Black business owners \
-considering market activity, untapped opportunity, and ease of entry. \
-Return ONLY valid JSON, no markdown, no explanation.
+MODEL = "claude-sonnet-4-6"
+_CLIENT = None
 
-Return JSON:
-{
-  "city": "<city>",
+def _get_client():
+    global _CLIENT
+    if _CLIENT is None:
+        _CLIENT = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+    return _CLIENT
+
+
+def _build_system_prompt() -> str:
+    community = getattr(config, "COMMUNITY", "business owners and entrepreneurs")
+    return f"""You are a market expansion strategist helping a founder identify which US cities have the most untapped opportunity for community outreach.
+
+The founder's target community is: {community}
+
+Given event intelligence for a city, output ONLY a valid JSON object — no markdown, no commentary — with these exact keys:
+{{
+  "city": "<string>",
   "activity_score": <1-10>,
   "opportunity_gap_score": <1-10>,
   "recommended_visit_priority": "<immediate|next_quarter|watch_list>",
-  "top_entry_points": ["<entry 1>", "<entry 2>", "<entry 3>"],
-  "first_action_when_you_arrive": "<one sentence>"
-}"""
+  "top_3_entry_points": ["<string>", "<string>", "<string>"],
+  "first_action_when_you_arrive": "<one sentence tactical first step>"
+}}"""
 
 
-def score_city(city: str, event_count: int, high_score_count: int, top_events: list[str]) -> dict:
-    top_events_str = "\n".join(f"- {e}" for e in top_events[:3]) if top_events else "None"
-    user_msg = (
+def score_city(
+    city: str,
+    event_count: int,
+    group_count: int,
+    top_event_names: list[str],
+) -> dict:
+    prompt = (
         f"City: {city}\n"
-        f"Total events found: {event_count}\n"
-        f"Events scoring above 5: {high_score_count}\n"
-        f"Top events:\n{top_events_str}"
+        f"Events found: {event_count}\n"
+        f"Groups found: {group_count}\n"
+        f"Top event names: {json.dumps(top_event_names)}\n"
+        f"Target community: {getattr(config, 'COMMUNITY', 'business owners and entrepreneurs')}"
     )
+
     try:
-        response = CLIENT.messages.create(
+        response = _get_client().messages.create(
             model=MODEL,
             max_tokens=400,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_msg}],
+            system=_build_system_prompt(),
+            messages=[{"role": "user", "content": prompt}],
         )
         text = response.content[0].text.strip()
-        return json.loads(text)
+        text = re.sub(r'```json\s*', '', text)
+        text = re.sub(r'```\s*', '', text)
+        result = json.loads(text)
+        result.setdefault("city", city)
+        return result
     except Exception as e:
-        print(f"[WARN] score_city failed for {city}: {e}")
+        print(f"[WARN] score_city failed for '{city}': {e}")
         return {
             "city": city,
             "activity_score": 0,
             "opportunity_gap_score": 0,
             "recommended_visit_priority": "watch_list",
-            "top_entry_points": [],
-            "first_action_when_you_arrive": "Data unavailable.",
+            "top_3_entry_points": [],
+            "first_action_when_you_arrive": "",
         }
 
 
-def score_cities(events: list[dict]) -> list[dict]:
-    city_map: dict[str, list[dict]] = {}
-    for ev in events:
-        city = ev.get("city", "Unknown")
-        city_map.setdefault(city, []).append(ev)
+def score_cities(scored_events: list[dict]) -> list[dict]:
+    cities_seen = {}
+    for e in scored_events:
+        city = e.get("city", "")
+        if city:
+            if city not in cities_seen:
+                cities_seen[city] = []
+            cities_seen[city].append(e)
 
-    city_scores = []
-    for city, city_events in city_map.items():
-        event_count = len(city_events)
-        high_score_count = sum(
-            1 for ev in city_events if ev.get("opportunity_score", 0) > 5
-        )
-        top_events = [
-            ev.get("name", "")
-            for ev in sorted(
-                city_events, key=lambda x: x.get("opportunity_score", 0), reverse=True
-            )[:3]
-        ]
-        score = score_city(city, event_count, high_score_count, top_events)
-        city_scores.append(score)
+    results = []
+    for city, events in cities_seen.items():
+        top_names = [e.get("name", "") for e in events[:3]]
+        cs = score_city(city, len(events), len(events), top_names)
+        results.append(cs)
 
-    city_scores.sort(key=lambda x: x.get("activity_score", 0), reverse=True)
-    return city_scores
+    results.sort(key=lambda x: x.get("opportunity_gap_score", 0), reverse=True)
+    return results
